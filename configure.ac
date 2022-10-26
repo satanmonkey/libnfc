@@ -1,7 +1,7 @@
 # General init
 
 # /!\ Don't forget to update 'CMakeLists.txt' too /!\
-AC_INIT([libnfc],[1.7.1],[nfc-tools@googlegroups.com])
+AC_INIT([libnfc],[1.8.0],[nfc-tools@googlegroups.com])
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -47,6 +47,7 @@ AC_HEADER_STDBOOL
 AC_CHECK_HEADERS([fcntl.h limits.h stdio.h stdlib.h stdint.h stddef.h stdbool.h sys/ioctl.h sys/param.h sys/time.h termios.h])
 AC_CHECK_HEADERS([linux/spi/spidev.h], [spi_available="yes"])
 AC_CHECK_HEADERS([linux/i2c-dev.h], [i2c_available="yes"])
+AC_CHECK_HEADERS([linux_nfc_api.h], [nfc_nci_available="yes"])
 AC_CHECK_FUNCS([memmove memset select strdup strerror strstr strtol usleep],
 	       [AC_DEFINE([_XOPEN_SOURCE], [600], [Enable POSIX extensions if present])])
 
@@ -130,6 +131,16 @@ then
   AC_SEARCH_LIBS([clock_gettime], [rt])
 fi
 
+# Enable Libnfc-NCI if required
+if test x"$nfc_nci_required" = x"yes"
+then
+  PKG_CHECK_MODULES([LIBNFC_NCI], [libnfc-nci],
+    [AC_MSG_NOTICE([libnfc-nci present])],
+    [AC_MSG_ERROR([libnfc-nci not present but required for some drivers configuration])]
+  )
+  CFLAGS="$CFLAGS $LIBNFC_NCI_CFLAGS"
+fi
+
 # Documentation (default: no)
 AC_ARG_ENABLE([doc],AS_HELP_STRING([--enable-doc],[Enable documentation generation.]),[enable_doc=$enableval],[enable_doc="no"])
 
@@ -145,6 +156,14 @@ then
   fi
 fi
 AM_CONDITIONAL(DOC_ENABLED, [test x"$enable_doc" = xyes])
+
+# Example build (default: yes)
+AC_ARG_ENABLE([example],AS_HELP_STRING([--enable-example],[Enable example build.]),[enable_example=$enableval],[enable_example="yes"])
+
+AC_MSG_CHECKING(for example build)
+AC_MSG_RESULT($enable_example)
+
+AM_CONDITIONAL(EXAMPLE_ENABLED, [test x"$enable_example" = xyes])
 
 # Dependencies
 PKG_CONFIG_REQUIRES=""
@@ -164,7 +183,10 @@ if test x$ac_cv_with_cutter = xyes -a x$ac_cv_use_cutter = xno; then
 fi
 AM_CONDITIONAL([WITH_CUTTER], [test "$ac_cv_use_cutter" != "no"])
 
+if test x"$enable_example" = "xyes"
+then
 AC_CHECK_READLINE
+fi
 
 # Help us to write great code ;-)
 CFLAGS="$CFLAGS -Wall -pedantic -Wextra"

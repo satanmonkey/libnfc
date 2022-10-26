@@ -2,11 +2,7 @@
  * Free/Libre Near Field Communication (NFC) library
  *
  * Libnfc historical contributors:
- * Copyright (C) 2009      Roel Verdult
- * Copyright (C) 2009-2013 Romuald Conty
- * Copyright (C) 2010-2012 Romain Tartière
- * Copyright (C) 2010-2013 Philippe Teuwen
- * Copyright (C) 2012-2013 Ludovic Rousseau
+ * Copyright (C) 2019      Frank Morgner
  * See AUTHORS file for a more comprehensive list of contributors.
  * Additional contributors of this file:
  *
@@ -22,33 +18,18 @@
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
- *
  */
 
 /**
- * @file usbbus.h
- * @brief libusb 0.1 driver header
+ * @file pcsc.h
+ * @brief Driver for non-ACR122 devices (behind PC/SC daemon)
  */
 
-#ifndef __NFC_BUS_USB_H__
-#  define __NFC_BUS_USB_H__
+#ifndef __NFC_DRIVER_PCSC_H__
+#define __NFC_DRIVER_PCSC_H__
 
-#ifndef _WIN32
-// Under POSIX system, we use libusb (>= 0.1.12)
-#include <stdint.h>
-#include <usb.h>
-#define USB_TIMEDOUT ETIMEDOUT
-#define _usb_strerror( X ) strerror(-X)
-#else
-// Under Windows we use libusb-win32 (>= 1.2.5)
-#include <lusb0_usb.h>
-#define USB_TIMEDOUT 116
-#define _usb_strerror( X ) usb_strerror()
-#endif
+#include <nfc/nfc-types.h>
 
-#include <stdbool.h>
-#include <string.h>
+extern const struct nfc_driver pcsc_driver;
 
-int usb_prepare(void);
-
-#endif // __NFC_BUS_USB_H__
+#endif // ! __NFC_DRIVER_PCSC_H__

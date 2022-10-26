@@ -43,7 +43,9 @@ Thanks to d18c7db and Okko for example code
 #include <sys/select.h>
 #include <errno.h>
 #include <string.h>
-
+#ifdef _MSC_VER
+#include <sys/types.h>
+#endif
 #include <nfc/nfc.h>
 
 #include "nfc-internal.h"
@@ -132,13 +134,13 @@ struct pn53x_usb_supported_device {
 };
 
 const struct pn53x_usb_supported_device pn53x_usb_supported_devices[] = {
-  { 0x04CC, 0x0531, NXP_PN531,   "Philips / PN531", 0, 0, 0 },
-  { 0x04CC, 0x2533, NXP_PN533,   "NXP / PN533", 0x04, 0x84, 40 },
-  { 0x04E6, 0x5591, SCM_SCL3711, "SCM Micro / SCL3711-NFC&RW", 0x04, 0x84, 40 },
-  { 0x04E6, 0x5594, SCM_SCL3712, "SCM Micro / SCL3712-NFC&RW", 0, 0, 0 },
-  { 0x054c, 0x0193, SONY_PN531,  "Sony / PN531", 0, 0, 0 },
-  { 0x1FD3, 0x0608, ASK_LOGO,    "ASK / LoGO", 0x04, 0x84, 40 },
-  { 0x054C, 0x02E1, SONY_RCS360, "Sony / FeliCa S360 [PaSoRi]", 0, 0, 0 }
+  { 0x04CC, 0x0531, NXP_PN531,   "Philips / PN531",             0x84, 0x04, 0x40 },
+  { 0x04CC, 0x2533, NXP_PN533,   "NXP / PN533",                 0x84, 0x04, 0x40 },
+  { 0x04E6, 0x5591, SCM_SCL3711, "SCM Micro / SCL3711-NFC&RW",  0x84, 0x04, 0x40 },
+  { 0x04E6, 0x5594, SCM_SCL3712, "SCM Micro / SCL3712-NFC&RW",  0, 0, 0 }, // to check on real device
+  { 0x054c, 0x0193, SONY_PN531,  "Sony / PN531",                0x84, 0x04, 0x40 },
+  { 0x1FD3, 0x0608, ASK_LOGO,    "ASK / LoGO",                  0x84, 0x04, 0x40 },
+  { 0x054C, 0x02E1, SONY_RCS360, "Sony / FeliCa S360 [PaSoRi]", 0x84, 0x04, 0x40 }
 };
 
 // PN533 USB descriptors backup buffers
@@ -337,7 +339,10 @@ pn53x_usb_scan(const nfc_context *context, nfc_connstring connstrings[], const s
           // pn53x_usb_get_usb_device_name (dev, udev, pnddDevices[device_found].acDevice, sizeof (pnddDevices[device_found].acDevice));
           log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "device found: Bus %s Device %s", bus->dirname, dev->filename);
           usb_close(udev);
-          snprintf(connstrings[device_found], sizeof(nfc_connstring), "%s:%s:%s", PN53X_USB_DRIVER_NAME, bus->dirname, dev->filename);
+          if (snprintf(connstrings[device_found], sizeof(nfc_connstring), "%s:%s:%s", PN53X_USB_DRIVER_NAME, bus->dirname, dev->filename) >= (int)sizeof(nfc_connstring)) {
+            // truncation occurred, skipping that one
+            continue;
+          }
           device_found++;
           // Test if we reach the maximum "wanted" devices
           if (device_found == connstrings_len) {
@@ -421,6 +426,11 @@ pn53x_usb_open(const nfc_context *context, const nfc_connstring connstring)
       // Open the USB device
       if ((data.pudh = usb_open(dev)) == NULL)
         continue;
+
+      //To retrieve real USB endpoints configuration:
+      //pn53x_usb_get_end_points(dev, &data);
+      //printf("DEBUG ENDPOINTS    In:0x%x  Out:0x%x  Size:0x%x\n", data.uiEndPointIn, data.uiEndPointOut, data.uiMaxPacketSize);
+
       // Retrieve end points, using hardcoded defaults if available
       // or using the descriptors otherwise.
       if (pn53x_usb_get_end_points_default(dev, &data) == false) {
@@ -613,7 +623,7 @@ read:
   if (timeout == USB_INFINITE_TIMEOUT) {
     usb_timeout = USB_TIMEOUT_PER_PASS;
   } else {
-    // A user-provided timeout is set, we have to cut it in multiple chunk to be able to keep an nfc_abort_command() mecanism
+    // A user-provided timeout is set, we have to cut it in multiple chunk to be able to keep an nfc_abort_command() mechanism
     remaining_time -= USB_TIMEOUT_PER_PASS;
     if (remaining_time <= 0) {
       pnd->last_error = NFC_ETIMEOUT;
@@ -809,7 +819,7 @@ pn53x_usb_set_property_bool(nfc_device *pnd, const nfc_property property, const 
       if (NP_ACTIVATE_FIELD == property) {
         /* Switch on/off LED2 and Progressive Field GPIO according to ACTIVATE_FIELD option */
         log_put(LOG_GROUP, LOG_CATEGORY, NFC_LOG_PRIORITY_DEBUG, "Switch progressive field %s", bEnable ? "On" : "Off");
-        if ((res = pn53x_write_register(pnd, PN53X_SFR_P3, _BV(P31) | _BV(P34), bEnable ? _BV(P34) : _BV(P31))) < 0)
+        if (pn53x_write_register(pnd, PN53X_SFR_P3, _BV(P31) | _BV(P34), bEnable ? _BV(P34) : _BV(P31)) < 0)
           return NFC_ECHIP;
       }
       break;
